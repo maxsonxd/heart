@@ -499,7 +499,3 @@ with st.container():
         '<hr style="border: none; height: 1px; background: rgba(0,0,0,0.08);">',
         unsafe_allow_html=True,
     )
-
-    # Note: you had a closing </div> without an opening <div class="card"> in the snippet you posted.
-    # If you intended a card wrapper, add it explicitly; otherwise remove this.
-    # st.markdown("</div>", unsafe_allow_html=True)
