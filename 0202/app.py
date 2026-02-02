@@ -10,19 +10,30 @@ st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layou
 HER_NAME = "Onigiri"
 ME_NICKNAME = "Maki Pie"
 
-# ----- Load song.mp3 as base64 (fixes "missing on deploy") -----
+# ----- Load songs as base64 (fixes "missing on deploy") -----
 APP_DIR = Path(__file__).resolve().parent
-SONG_PATH = APP_DIR / "song2.mp3"
+SONG1_PATH = APP_DIR / "song1.mp3"
+SONG2_PATH = APP_DIR / "song2.mp3"
 
-AUDIO_B64 = ""
+SONG1_B64 = ""
+SONG2_B64 = ""
 AUDIO_ERROR = ""
 
 try:
-    AUDIO_B64 = base64.b64encode(SONG_PATH.read_bytes()).decode("utf-8")
+    SONG1_B64 = base64.b64encode(SONG1_PATH.read_bytes()).decode("utf-8")
 except FileNotFoundError:
-    AUDIO_ERROR = f"song file not found at: {SONG_PATH}"
+    AUDIO_ERROR += f"song1 file not found at: {SONG1_PATH}\n"
 except Exception as e:
-    AUDIO_ERROR = f"Could not load song file: {e}"
+    AUDIO_ERROR += f"Could not load song1 file: {e}\n"
+
+try:
+    SONG2_B64 = base64.b64encode(SONG2_PATH.read_bytes()).decode("utf-8")
+except FileNotFoundError:
+    AUDIO_ERROR += f"song2 file not found at: {SONG2_PATH}\n"
+except Exception as e:
+    AUDIO_ERROR += f"Could not load song2 file: {e}\n"
+
+AUDIO_ERROR = AUDIO_ERROR.strip()
 
 # ----- CSS (Theme: pink > blue > yellow) -----
 CSS = """
@@ -146,29 +157,6 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   font-weight: 800 !important;
   box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
 }
-
-/* Mini music controls */
-.musicbar{
-  display:flex;
-  justify-content:center;
-  gap: 10px;
-  margin: 8px 0 2px 0;
-}
-.musicbtn{
-  padding: 9px 12px;
-  border-radius: 12px;
-  border: 0;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.12);
-  background: rgba(255,255,255,0.90);
-  color: #2b2b2b;
-}
-.musichint{
-  text-align:center;
-  font-size: 0.92rem;
-  opacity: 0.78;
-}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -214,31 +202,64 @@ EFFECTS_AND_AUDIO = f"""
       tw.className = "twinkle";
       doc.body.appendChild(tw);
 
-      // Persistent audio element
+      // Persistent audio element (starts as song1)
       const audio = doc.createElement("audio");
       audio.id = "bgm_onigiri";
       audio.loop = true;
       audio.preload = "auto";
       audio.volume = 0.55;
       audio.style.display = "none";
-      audio.src = "data:audio/mpeg;base64,{AUDIO_B64}";
+
+      // store both tracks
+      audio.dataset.song1 = "data:audio/mpeg;base64,{SONG1_B64}";
+      audio.dataset.song2 = "data:audio/mpeg;base64,{SONG2_B64}";
+      audio.dataset.current = "song1";
+
+      audio.src = audio.dataset.song1;
       doc.body.appendChild(audio);
 
       // Helpers
       window.parent.__BGM_PLAY = async function(){{
         const a = doc.getElementById("bgm_onigiri");
         if (!a) return;
-        try {{ await a.play(); }} catch(e) {{ console.log("BGM blocked:", e); }}
+        try {{ await a.play(); }} catch(e) {{ /* blocked until gesture */ }}
       }};
+
       window.parent.__BGM_TOGGLE = async function(){{
         const a = doc.getElementById("bgm_onigiri");
         if (!a) return;
         if (a.paused) {{
-          try {{ await a.play(); }} catch(e) {{ console.log("BGM blocked:", e); }}
+          try {{ await a.play(); }} catch(e) {{}}
         }} else {{
           a.pause();
         }}
       }};
+
+      window.parent.__BGM_SET = async function(which){{
+        const a = doc.getElementById("bgm_onigiri");
+        if (!a) return;
+        const wanted = (which === "song2") ? "song2" : "song1";
+        if (a.dataset.current === wanted) return;
+
+        a.pause();
+        a.dataset.current = wanted;
+        a.src = (wanted === "song2") ? a.dataset.song2 : a.dataset.song1;
+        a.load();
+
+        try {{ await a.play(); }} catch(e) {{}}
+      }};
+
+      // Attempt autoplay immediately (often blocked)
+      window.parent.__BGM_PLAY();
+
+      // If blocked, start on the first user gesture anywhere (one-time)
+      const startOnce = async () => {{
+        doc.removeEventListener("pointerdown", startOnce, true);
+        doc.removeEventListener("keydown", startOnce, true);
+        await window.parent.__BGM_PLAY();
+      }};
+      doc.addEventListener("pointerdown", startOnce, true);
+      doc.addEventListener("keydown", startOnce, true);
 
       // Floaties
       const FLOATIES = ["💖","💘","💝","💗","💓","💕","❤️","🎈","🎈","🍙","🍙","🍣","✨","✨"];
@@ -256,7 +277,9 @@ EFFECTS_AND_AUDIO = f"""
         const size = 18 + Math.random()*24;   // lighter
         el.style.animationDuration = dur + "s";
         el.style.fontSize = size + "px";
-        el.style.transform = `translate3d(0,0,0) rotate(${{Math.floor(Math.random()*22)-11}}deg)`;
+        el.style.transform = `translate3d(0,0,0) rotate(${{
+          Math.floor(Math.random()*22)-11
+        }}deg)`;
 
         doc.body.appendChild(el);
         window.setTimeout(()=>el.remove(), (dur*1000)+900);
@@ -298,22 +321,6 @@ st.write("")
 if AUDIO_ERROR:
     st.error(AUDIO_ERROR)
 
-# # Music toggle (backup gesture if a phone blocks the first play)
-# components.html(
-#     """
-#     <div class="musicbar">
-#       <button class="musicbtn" id="musicToggle">🎵 Mute/Unmute</button>
-#     </div>
-#     <script>
-#       const btn = document.getElementById("musicToggle");
-#       btn.addEventListener("click", async () => {
-#         if (window.parent.__BGM_TOGGLE) await window.parent.__BGM_TOGGLE();
-#       });
-#     </script>
-#     """,
-#     height=80,
-# )
-
 with st.container():
     st.markdown(
         '<div class="badge">✨ A tiny website I made just for you, my love, my heart, my honey pie pie ✨</div>',
@@ -354,12 +361,12 @@ with st.container():
             unsafe_allow_html=True,
         )
 
-        # IMPORTANT: Custom HTML button so audio.play() runs in the SAME click gesture.
-        # Also navigate the TOP-LEVEL window (window.parent.location), not the iframe.
+        # Streamlit button (changes stage)
         if st.button("Open the question 💖"):
-          st.session_state.stage = "question"
-          st.rerun()
-          
+            st.session_state.stage = "question"
+            st.rerun()
+
+        # IMPORTANT: Bind to the same click gesture and switch to song2
         components.html(
             """
             <script>
@@ -370,7 +377,6 @@ with st.container():
                 // Find the Streamlit button by its visible text
                 const buttons = Array.from(doc.querySelectorAll('button'));
                 const target = buttons.find(b => (b.innerText || "").trim() === "Open the question 💖");
-
                 if (!target) return;
 
                 // Avoid binding multiple times on reruns
@@ -379,11 +385,13 @@ with st.container():
 
                 target.addEventListener("click", async () => {
                   try {
-                    if (window.parent.__BGM_PLAY) {
+                    if (window.parent.__BGM_SET) {
+                      await window.parent.__BGM_SET("song2");
+                    } else if (window.parent.__BGM_PLAY) {
                       await window.parent.__BGM_PLAY();
                     }
                   } catch (e) {
-                    console.log("BGM play blocked:", e);
+                    console.log("BGM switch blocked:", e);
                   }
                 }, { capture: true });
               } catch (e) {
@@ -394,7 +402,6 @@ with st.container():
             """,
             height=0,
         )
-
 
     elif st.session_state.stage == "question":
         st.markdown(
@@ -493,4 +500,6 @@ with st.container():
         unsafe_allow_html=True,
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Note: you had a closing </div> without an opening <div class="card"> in the snippet you posted.
+    # If you intended a card wrapper, add it explicitly; otherwise remove this.
+    # st.markdown("</div>", unsafe_allow_html=True)
