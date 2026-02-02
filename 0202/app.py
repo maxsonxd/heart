@@ -12,7 +12,7 @@ ME_NICKNAME = "Maki Pie"
 
 # ----- Load song.mp3 as base64 (fixes "missing on deploy") -----
 APP_DIR = Path(__file__).resolve().parent
-SONG_PATH = APP_DIR / "song.mp3"
+SONG_PATH = APP_DIR / "song2.mp3"
 
 AUDIO_B64 = ""
 AUDIO_ERROR = ""
@@ -20,9 +20,9 @@ AUDIO_ERROR = ""
 try:
     AUDIO_B64 = base64.b64encode(SONG_PATH.read_bytes()).decode("utf-8")
 except FileNotFoundError:
-    AUDIO_ERROR = f"song.mp3 not found at: {SONG_PATH}"
+    AUDIO_ERROR = f"song file not found at: {SONG_PATH}"
 except Exception as e:
-    AUDIO_ERROR = f"Could not load song.mp3: {e}"
+    AUDIO_ERROR = f"Could not load song file: {e}"
 
 # ----- CSS (Theme: pink > blue > yellow) -----
 CSS = """
@@ -342,9 +342,9 @@ with st.container():
             f"""
             <p class="big">
               I made this little page because I wanted to ask you something in a way that’s
-              <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>.
+              <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>
               <br><br>
-              Also I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
+              Also, I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
               <br><br>
               So… here goes nothing!
             </p>
