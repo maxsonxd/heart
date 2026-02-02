@@ -141,6 +141,13 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   font-weight: 800 !important;
   box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
 }
+
+/* Extra: center the "Tap to open" button nicely */
+.open-btn .stButton > button{
+  width: 100%;
+  padding: 14px 16px !important;
+  font-size: 1.05rem !important;
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -151,7 +158,7 @@ if "stage" not in st.session_state:
 if "answered" not in st.session_state:
     st.session_state.answered = None
 
-# ----- Handle query params from JS buttons -----
+# ----- Handle query params from internal JS (only used for "maybe") -----
 choice = st.query_params.get("choice")
 if choice in ("yes", "maybe", "no"):
     st.session_state.answered = choice
@@ -160,10 +167,6 @@ if choice in ("yes", "maybe", "no"):
         st.balloons()
     st.query_params.clear()
     st.rerun()
-
-stage_q = st.query_params.get("stage")
-if stage_q in ("letter", "intro", "question", "result"):
-    st.session_state.stage = stage_q
 
 # ----- Inject floaties + persistent audio into PARENT DOM -----
 EFFECTS_AND_AUDIO = f"""
@@ -235,9 +238,7 @@ EFFECTS_AND_AUDIO = f"""
         const size = 18 + Math.random()*24;
         el.style.animationDuration = dur + "s";
         el.style.fontSize = size + "px";
-        el.style.transform = `translate3d(0,0,0) rotate(${{
-          Math.floor(Math.random()*22)-11
-        }}deg)`;
+        el.style.transform = `translate3d(0,0,0) rotate(${{Math.floor(Math.random()*22)-11}}deg)`;
 
         doc.body.appendChild(el);
         window.setTimeout(()=>el.remove(), (dur*1000)+900);
@@ -298,11 +299,12 @@ with st.container():
     who = HER_NAME.strip() if HER_NAME.strip() else "baby pie"
 
     # =========================
-    # STAGE 0: LOVE LETTER (rendered via components.html so it never becomes code text)
+    # STAGE 0: LOVE LETTER
     # =========================
     if st.session_state.stage == "letter":
         st.markdown("## 💌 A love letter for you…")
 
+        # Purely visual envelope (shake animation works), but NO parent navigation.
         letter_html = Template(r"""
 <!doctype html>
 <html>
@@ -486,30 +488,20 @@ with st.container():
   const env = document.getElementById("open_letter");
   if (!env) return;
 
-  const goIntro = () => {
-    const url = new URL(window.parent.location.href);
-    url.searchParams.set("stage", "intro");
-    window.parent.location.href = url.toString();
-  };
-
-
-  function openIt(){
+  function animateOnly(){
     env.classList.add("opening");
-
     try{
       if (window.parent.__BGM_SET) window.parent.__BGM_SET("song1");
       if (window.parent.__BGM_PLAY) window.parent.__BGM_PLAY();
     }catch(e){}
-
-    window.setTimeout(goIntro, 520);
+    window.setTimeout(()=>env.classList.remove("opening"), 700);
   }
 
-
-  env.addEventListener("click", openIt, {capture:true});
+  env.addEventListener("click", animateOnly, {capture:true});
   env.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      openIt();
+      animateOnly();
     }
   });
 })();
@@ -520,6 +512,41 @@ with st.container():
 
         components.html(letter_html, height=420)
 
+        # Real navigation button (works reliably)
+        st.markdown('<div class="open-btn">', unsafe_allow_html=True)
+        open_now = st.button("✨ Tap to open ✨", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Bind audio start to this Streamlit button click (like you did later)
+        components.html(
+            """
+<script>
+(function(){
+  try {
+    const doc = window.parent.document;
+    const buttons = Array.from(doc.querySelectorAll('button'));
+    const target = buttons.find(b => (b.innerText || "").trim() === "✨ Tap to open ✨");
+    if (!target) return;
+
+    if (target.dataset.bgmBound === "1") return;
+    target.dataset.bgmBound = "1";
+
+    target.addEventListener("click", async () => {
+      try {
+        if (window.parent.__BGM_SET) await window.parent.__BGM_SET("song1");
+        if (window.parent.__BGM_PLAY) await window.parent.__BGM_PLAY();
+      } catch (e) {}
+    }, { capture: true });
+  } catch (e) {}
+})();
+</script>
+            """,
+            height=0,
+        )
+
+        if open_now:
+            st.session_state.stage = "intro"
+            st.rerun()
 
     # =========================
     # STAGE 1: INTRO
@@ -542,10 +569,9 @@ with st.container():
             unsafe_allow_html=True,
         )
 
-        if st.button("Open the question 💖"):
-            st.session_state.stage = "question"
-            st.rerun()
+        go_q = st.button("Open the question 💖")
 
+        # Switch to song2 on click
         components.html(
             """
 <script>
@@ -566,18 +592,18 @@ with st.container():
         } else if (window.parent.__BGM_PLAY) {
           await window.parent.__BGM_PLAY();
         }
-      } catch (e) {
-        console.log("BGM switch blocked:", e);
-      }
+      } catch (e) {}
     }, { capture: true });
-  } catch (e) {
-    console.log("Bind failed:", e);
-  }
+  } catch (e) {}
 })();
 </script>
             """,
             height=0,
         )
+
+        if go_q:
+            st.session_state.stage = "question"
+            st.rerun()
 
     # =========================
     # STAGE 2: QUESTION
@@ -605,6 +631,7 @@ with st.container():
                 st.rerun()
 
         with col2:
+            # Shy button stays the same; it sets ?choice=maybe (allowed)
             components.html(
                 """
 <div style="position: relative; height: 68px; display:flex; align-items:center; justify-content:center;">
@@ -670,6 +697,18 @@ with st.container():
                 unsafe_allow_html=True,
             )
             st.success("Achievement unlocked: Official Valentine 💘🍙🍣")
+        else:
+            st.markdown(
+                f"""
+<h1>Hehe 🤭</h1>
+<p class="big">
+  Okay okay… I’ll take “thinking”! 💘
+  <br><br>
+  I’m still happy you opened this.
+</p>
+                """,
+                unsafe_allow_html=True,
+            )
 
         if st.button("Ask again (reset) 🔁"):
             st.session_state.stage = "letter"
