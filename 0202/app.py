@@ -157,13 +157,180 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   font-weight: 800 !important;
   box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
 }
+
+/* =========================
+   LOVE LETTER ENVELOPE STAGE
+   ========================= */
+.envelope-wrap{
+  display:flex;
+  justify-content:center;
+  margin: 22px 0 10px;
+}
+.envelope{
+  width:min(560px, 94vw);
+  border-radius: 26px;
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.12);
+  backdrop-filter: blur(10px);
+  padding: 18px 18px 20px;
+  cursor: pointer;
+  position: relative;
+  overflow:hidden;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
+}
+.envelope:hover{
+  box-shadow: 0 18px 44px rgba(0,0,0,0.14);
+}
+.envelope:active{
+  transform: translateY(1px);
+}
+
+.env-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  font-weight: 900;
+}
+.env-stamp{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(255,192,192,0.45);
+  border: 1px solid rgba(255,255,255,0.65);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+  font-size: 26px;
+  transform: rotate(-6deg);
+}
+.env-title{
+  font-size: 1.18rem;
+  line-height: 1.2;
+}
+.env-sub{
+  opacity: 0.82;
+  font-weight: 700;
+  margin-top: 5px;
+  font-size: 0.98rem;
+}
+
+.env-body{
+  margin-top: 14px;
+  position: relative;
+  border-radius: 22px;
+  padding: 16px 14px 14px;
+  background: rgba(255,255,255,0.60);
+  border: 1px dashed rgba(43,43,43,0.18);
+}
+
+/* Fake “paper” inside envelope */
+.env-paper{
+  height: 126px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72));
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+  transform: translateY(34px);
+  position: relative;
+  overflow:hidden;
+}
+.paper-line{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(43,43,43,0.10);
+  margin: 12px 16px;
+}
+.paper-line.short{ width: 62%; }
+.paper-line.tiny{ width: 42%; }
+
+/* Envelope flap (pseudo) */
+.envelope::before{
+  content:"";
+  position:absolute;
+  left: 0;
+  right: 0;
+  top: 118px; /* aligns with env-body top visually */
+  height: 170px;
+  background:
+    linear-gradient(180deg, rgba(255,192,192,0.25), rgba(168,216,240,0.16)),
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.55), rgba(255,255,255,0.0) 60%);
+  clip-path: polygon(0 0, 100% 0, 50% 70%);
+  opacity: 0.85;
+  transform-origin: 50% 0%;
+  transform: rotateX(0deg);
+  transition: transform 520ms ease;
+  pointer-events:none;
+}
+
+/* Cute open CTA */
+.env-cta{
+  margin-top: 14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  font-weight: 900;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(168,216,240,0.35);
+  border: 1px solid rgba(255,255,255,0.65);
+}
+
+/* Opening animation state */
+.envelope.opening{
+  animation: envWiggle 520ms ease both;
+}
+@keyframes envWiggle{
+  0%   { transform: translateY(0) rotate(0deg); }
+  35%  { transform: translateY(-1px) rotate(-0.7deg); }
+  70%  { transform: translateY(0) rotate(0.7deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+.envelope.opening::before{
+  transform: rotateX(70deg);
+}
+
+/* Paper slides up when opening */
+.envelope.opening .env-paper{
+  animation: paperUp 520ms ease both;
+}
+@keyframes paperUp{
+  from { transform: translateY(34px); }
+  to   { transform: translateY(4px); }
+}
+
+/* Little sparkle burst */
+.envelope .sparkle{
+  position:absolute;
+  inset: 0;
+  pointer-events:none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.65) 1px, transparent 2px),
+    radial-gradient(circle at 72% 38%, rgba(255,255,255,0.55) 1px, transparent 2px),
+    radial-gradient(circle at 38% 70%, rgba(255,255,255,0.55) 1px, transparent 2px),
+    radial-gradient(circle at 82% 78%, rgba(255,255,255,0.55) 1px, transparent 2px);
+}
+.envelope.opening .sparkle{
+  animation: sparkle 520ms ease both;
+}
+@keyframes sparkle{
+  0% { opacity: 0; transform: scale(0.98); }
+  45%{ opacity: 0.55; }
+  100%{ opacity: 0; transform: scale(1.02); }
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
 # ----- State -----
 if "stage" not in st.session_state:
-    st.session_state.stage = "intro"
+    st.session_state.stage = "letter"  # start as a love letter
 if "answered" not in st.session_state:
     st.session_state.answered = None
 
@@ -178,11 +345,12 @@ if choice in ("yes", "maybe", "no"):
     st.rerun()
 
 stage_q = st.query_params.get("stage")
-if stage_q in ("intro", "question", "result"):
+if stage_q in ("letter", "intro", "question", "result"):
     st.session_state.stage = stage_q
 
 # ----- Inject floaties + persistent audio into PARENT DOM -----
 # NOTE: base64 audio means no missing-file URL issues on Streamlit Cloud.
+# IMPORTANT: do NOT attempt autoplay on load; play on letter-open click for reliability.
 EFFECTS_AND_AUDIO = f"""
 <div></div>
 <script>
@@ -202,7 +370,7 @@ EFFECTS_AND_AUDIO = f"""
       tw.className = "twinkle";
       doc.body.appendChild(tw);
 
-      // Persistent audio element (starts as song1)
+      // Persistent audio element (starts as song1, but played only by gesture)
       const audio = doc.createElement("audio");
       audio.id = "bgm_onigiri";
       audio.loop = true;
@@ -222,7 +390,7 @@ EFFECTS_AND_AUDIO = f"""
       window.parent.__BGM_PLAY = async function(){{
         const a = doc.getElementById("bgm_onigiri");
         if (!a) return;
-        try {{ await a.play(); }} catch(e) {{ /* blocked until gesture */ }}
+        try {{ await a.play(); }} catch(e) {{ /* blocked unless gesture */ }}
       }};
 
       window.parent.__BGM_TOGGLE = async function(){{
@@ -248,18 +416,6 @@ EFFECTS_AND_AUDIO = f"""
 
         try {{ await a.play(); }} catch(e) {{}}
       }};
-
-      // Attempt autoplay immediately (often blocked)
-      window.parent.__BGM_PLAY();
-
-      // If blocked, start on the first user gesture anywhere (one-time)
-      const startOnce = async () => {{
-        doc.removeEventListener("pointerdown", startOnce, true);
-        doc.removeEventListener("keydown", startOnce, true);
-        await window.parent.__BGM_PLAY();
-      }};
-      doc.addEventListener("pointerdown", startOnce, true);
-      doc.addEventListener("keydown", startOnce, true);
 
       // Floaties
       const FLOATIES = ["💖","💘","💝","💗","💓","💕","❤️","🎈","🎈","🍙","🍙","🍣","✨","✨"];
@@ -343,7 +499,101 @@ with st.container():
 
     who = HER_NAME.strip() if HER_NAME.strip() else "baby pie"
 
-    if st.session_state.stage == "intro":
+    # =========================
+    # STAGE 0: LOVE LETTER
+    # =========================
+    if st.session_state.stage == "letter":
+        st.markdown("## 💌 A love letter for you…")
+        st.markdown(
+            f"""
+            <div class="envelope-wrap">
+              <div class="envelope" id="open_letter" role="button" aria-label="Open love letter">
+                <div class="sparkle"></div>
+
+                <div class="env-top">
+                  <div>
+                    <div class="env-title">To: <b>{HER_NAME}</b> 🍙</div>
+                    <div class="env-sub">From: <b>{ME_NICKNAME}</b> 🍣</div>
+                  </div>
+                  <div class="env-stamp">💘</div>
+                </div>
+
+                <div class="env-body">
+                  <div class="env-paper">
+                    <div class="paper-line"></div>
+                    <div class="paper-line short"></div>
+                    <div class="paper-line"></div>
+                    <div class="paper-line tiny"></div>
+                  </div>
+                </div>
+
+                <div class="env-cta">
+                  <span class="pulse">✨</span>
+                  <span>Tap to open</span>
+                  <span class="pulse">✨</span>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # JS: animate envelope -> play song1 on this click gesture -> navigate to intro
+        components.html(
+            """
+            <script>
+            (function(){
+              try{
+                const doc = window.parent.document;
+                const env = doc.getElementById("open_letter");
+                if (!env) return;
+
+                if (env.dataset.bound === "1") return;
+                env.dataset.bound = "1";
+
+                const goIntro = () => {
+                  const url = new URL(window.parent.location.href);
+                  url.searchParams.set("stage", "intro");
+                  window.parent.location.href = url.toString();
+                };
+
+                env.addEventListener("click", async () => {
+                  try{
+                    // Start animation immediately
+                    env.classList.add("opening");
+
+                    // Ensure correct track (song1) and attempt to play (gesture-based)
+                    if (window.parent.__BGM_SET) {
+                      await window.parent.__BGM_SET("song1");
+                    }
+                    if (window.parent.__BGM_PLAY) {
+                      await window.parent.__BGM_PLAY();
+                    }
+                  }catch(e){}
+
+                  // Let the animation be seen before navigation
+                  window.setTimeout(goIntro, 520);
+                }, {capture:true});
+
+                // Make Enter/Space also open (accessibility)
+                env.setAttribute("tabindex", "0");
+                env.addEventListener("keydown", (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    env.click();
+                  }
+                });
+              }catch(e){}
+            })();
+            </script>
+            """,
+            height=0,
+        )
+
+    # =========================
+    # STAGE 1: INTRO
+    # =========================
+    elif st.session_state.stage == "intro":
         st.markdown("## 💌 Hey baby pie…")
         st.markdown(
             f"""
@@ -403,6 +653,9 @@ with st.container():
             height=0,
         )
 
+    # =========================
+    # STAGE 2: QUESTION
+    # =========================
     elif st.session_state.stage == "question":
         st.markdown(
             f"""
@@ -473,7 +726,10 @@ with st.container():
 
         st.caption("psst… the ‘thinking’ button is shy 😳")
 
-    else:  # result
+    # =========================
+    # STAGE 3: RESULT
+    # =========================
+    else:
         if st.session_state.answered == "yes":
             st.markdown(
                 f"""
@@ -491,7 +747,7 @@ with st.container():
             st.success("Achievement unlocked: Official Valentine 💘🍙🍣")
 
         if st.button("Ask again (reset) 🔁"):
-            st.session_state.stage = "intro"
+            st.session_state.stage = "letter"  # reset back to envelope
             st.session_state.answered = None
             st.rerun()
 
