@@ -1,7 +1,8 @@
 import base64
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
-from pathlib import Path
 
 # ----- Page setup -----
 st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layout="centered")
@@ -57,18 +58,6 @@ CSS = """
   min-height: 100vh;
 }
 
-/* Card */
-.card{
-  background: var(--card);
-  border: 1px solid rgba(255,255,255,0.55);
-  box-shadow: 0 12px 34px var(--shadow);
-  border-radius: 22px;
-  padding: 26px 22px;
-  backdrop-filter: blur(10px);
-  position: relative;
-  z-index: 2;
-}
-
 /* Typography */
 h1,h2,h3,p{ color: var(--ink) !important; }
 .big{
@@ -106,12 +95,6 @@ h1,h2,h3,p{ color: var(--ink) !important; }
 @keyframes pulse{
   0%,100% { transform: scale(1); }
   50% { transform: scale(1.06); }
-}
-
-/* Footer */
-.footer{
-  opacity: 0.85;
-  font-size: 0.95rem;
 }
 
 /* Floating particles (in parent page DOM) */
@@ -248,13 +231,13 @@ h1,h2,h3,p{ color: var(--ink) !important; }
 .paper-line.short{ width: 62%; }
 .paper-line.tiny{ width: 42%; }
 
-/* Envelope flap (pseudo) */
+/* Envelope flap */
 .envelope::before{
   content:"";
   position:absolute;
   left: 0;
   right: 0;
-  top: 118px; /* aligns with env-body top visually */
+  top: 118px;
   height: 170px;
   background:
     linear-gradient(180deg, rgba(255,192,192,0.25), rgba(168,216,240,0.16)),
@@ -267,7 +250,7 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   pointer-events:none;
 }
 
-/* Cute open CTA */
+/* Open CTA */
 .env-cta{
   margin-top: 14px;
   display:flex;
@@ -294,8 +277,6 @@ h1,h2,h3,p{ color: var(--ink) !important; }
 .envelope.opening::before{
   transform: rotateX(70deg);
 }
-
-/* Paper slides up when opening */
 .envelope.opening .env-paper{
   animation: paperUp 520ms ease both;
 }
@@ -304,7 +285,7 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   to   { transform: translateY(4px); }
 }
 
-/* Little sparkle burst */
+/* Sparkle burst */
 .envelope .sparkle{
   position:absolute;
   inset: 0;
@@ -349,8 +330,6 @@ if stage_q in ("letter", "intro", "question", "result"):
     st.session_state.stage = stage_q
 
 # ----- Inject floaties + persistent audio into PARENT DOM -----
-# NOTE: base64 audio means no missing-file URL issues on Streamlit Cloud.
-# IMPORTANT: do NOT attempt autoplay on load; play on letter-open click for reliability.
 EFFECTS_AND_AUDIO = f"""
 <div></div>
 <script>
@@ -370,7 +349,7 @@ EFFECTS_AND_AUDIO = f"""
       tw.className = "twinkle";
       doc.body.appendChild(tw);
 
-      // Persistent audio element (starts as song1, but played only by gesture)
+      // Persistent audio element (play only on gesture)
       const audio = doc.createElement("audio");
       audio.id = "bgm_onigiri";
       audio.loop = true;
@@ -378,29 +357,17 @@ EFFECTS_AND_AUDIO = f"""
       audio.volume = 0.55;
       audio.style.display = "none";
 
-      // store both tracks
       audio.dataset.song1 = "data:audio/mpeg;base64,{SONG1_B64}";
       audio.dataset.song2 = "data:audio/mpeg;base64,{SONG2_B64}";
       audio.dataset.current = "song1";
-
       audio.src = audio.dataset.song1;
+
       doc.body.appendChild(audio);
 
-      // Helpers
       window.parent.__BGM_PLAY = async function(){{
         const a = doc.getElementById("bgm_onigiri");
         if (!a) return;
-        try {{ await a.play(); }} catch(e) {{ /* blocked unless gesture */ }}
-      }};
-
-      window.parent.__BGM_TOGGLE = async function(){{
-        const a = doc.getElementById("bgm_onigiri");
-        if (!a) return;
-        if (a.paused) {{
-          try {{ await a.play(); }} catch(e) {{}}
-        }} else {{
-          a.pause();
-        }}
+        try {{ await a.play(); }} catch(e) {{}}
       }};
 
       window.parent.__BGM_SET = async function(which){{
@@ -417,11 +384,20 @@ EFFECTS_AND_AUDIO = f"""
         try {{ await a.play(); }} catch(e) {{}}
       }};
 
+      window.parent.__BGM_TOGGLE = async function(){{
+        const a = doc.getElementById("bgm_onigiri");
+        if (!a) return;
+        if (a.paused) {{
+          try {{ await a.play(); }} catch(e) {{}}
+        }} else {{
+          a.pause();
+        }}
+      }};
+
       // Floaties
       const FLOATIES = ["💖","💘","💝","💗","💓","💕","❤️","🎈","🎈","🍙","🍙","🍣","✨","✨"];
 
       function spawnFloaty(emoji=null){{
-        // hard cap for performance
         if (doc.querySelectorAll(".floaty").length > 18) return;
 
         const el = doc.createElement("div");
@@ -429,8 +405,8 @@ EFFECTS_AND_AUDIO = f"""
         el.textContent = emoji || FLOATIES[Math.floor(Math.random()*FLOATIES.length)];
         el.style.left = Math.floor(Math.random()*96) + "vw";
 
-        const dur = 6 + Math.random()*4;      // 6–10s
-        const size = 18 + Math.random()*24;   // lighter
+        const dur = 6 + Math.random()*4;
+        const size = 18 + Math.random()*24;
         el.style.animationDuration = dur + "s";
         el.style.fontSize = size + "px";
         el.style.transform = `translate3d(0,0,0) rotate(${{
@@ -448,16 +424,13 @@ EFFECTS_AND_AUDIO = f"""
         }}
       }}
 
-      // Initial sprinkle
       for(let i=0;i<12;i++) {{
         window.setTimeout(()=>spawnFloaty(), i*120);
       }}
       window.setTimeout(burst, 900);
 
-      // Continuous spawning
       const baseInterval = 900;
       const burstChance = 0.03;
-
       window.setInterval(()=>{{
         spawnFloaty();
         if (Math.random() < burstChance) burst();
@@ -485,14 +458,14 @@ with st.container():
 
     st.markdown(
         """
-        <div class="title-strip">
-          <span>🍙</span>
-          <span>MNO 5ever</span>
-          <span>🍣</span>
-        </div>
-        <div class="title-strip">
-          <span class="pulse">💘</span>
-        </div>
+<div class="title-strip">
+  <span>🍙</span>
+  <span>MNO 5ever</span>
+  <span>🍣</span>
+</div>
+<div class="title-strip">
+  <span class="pulse">💘</span>
+</div>
         """,
         unsafe_allow_html=True,
     )
@@ -504,88 +477,85 @@ with st.container():
     # =========================
     if st.session_state.stage == "letter":
         st.markdown("## 💌 A love letter for you…")
+
+        # IMPORTANT: HTML MUST NOT BE INDENTED, or Markdown will show it as code.
         st.markdown(
             f"""
-            <div class="envelope-wrap">
-              <div class="envelope" id="open_letter" role="button" aria-label="Open love letter">
-                <div class="sparkle"></div>
+<div class="envelope-wrap">
+  <div class="envelope" id="open_letter" role="button" aria-label="Open love letter">
+    <div class="sparkle"></div>
 
-                <div class="env-top">
-                  <div>
-                    <div class="env-title">To: <b>{HER_NAME}</b> 🍙</div>
-                    <div class="env-sub">From: <b>{ME_NICKNAME}</b> 🍣</div>
-                  </div>
-                  <div class="env-stamp">💘</div>
-                </div>
+    <div class="env-top">
+      <div>
+        <div class="env-title">To: <b>{HER_NAME}</b> 🍙</div>
+        <div class="env-sub">From: <b>{ME_NICKNAME}</b> 🍣</div>
+      </div>
+      <div class="env-stamp">💘</div>
+    </div>
 
-                <div class="env-body">
-                  <div class="env-paper">
-                    <div class="paper-line"></div>
-                    <div class="paper-line short"></div>
-                    <div class="paper-line"></div>
-                    <div class="paper-line tiny"></div>
-                  </div>
-                </div>
+    <div class="env-body">
+      <div class="env-paper">
+        <div class="paper-line"></div>
+        <div class="paper-line short"></div>
+        <div class="paper-line"></div>
+        <div class="paper-line tiny"></div>
+      </div>
+    </div>
 
-                <div class="env-cta">
-                  <span class="pulse">✨</span>
-                  <span>Tap to open</span>
-                  <span class="pulse">✨</span>
-                </div>
-              </div>
-            </div>
+    <div class="env-cta">
+      <span class="pulse">✨</span>
+      <span>Tap to open</span>
+      <span class="pulse">✨</span>
+    </div>
+  </div>
+</div>
             """,
             unsafe_allow_html=True,
         )
 
-        # JS: animate envelope -> play song1 on this click gesture -> navigate to intro
         components.html(
             """
-            <script>
-            (function(){
-              try{
-                const doc = window.parent.document;
-                const env = doc.getElementById("open_letter");
-                if (!env) return;
+<script>
+(function(){
+  try{
+    const doc = window.parent.document;
+    const env = doc.getElementById("open_letter");
+    if (!env) return;
 
-                if (env.dataset.bound === "1") return;
-                env.dataset.bound = "1";
+    if (env.dataset.bound === "1") return;
+    env.dataset.bound = "1";
 
-                const goIntro = () => {
-                  const url = new URL(window.parent.location.href);
-                  url.searchParams.set("stage", "intro");
-                  window.parent.location.href = url.toString();
-                };
+    const goIntro = () => {
+      const url = new URL(window.parent.location.href);
+      url.searchParams.set("stage", "intro");
+      window.parent.location.href = url.toString();
+    };
 
-                env.addEventListener("click", async () => {
-                  try{
-                    // Start animation immediately
-                    env.classList.add("opening");
+    env.addEventListener("click", async () => {
+      try{
+        env.classList.add("opening");
 
-                    // Ensure correct track (song1) and attempt to play (gesture-based)
-                    if (window.parent.__BGM_SET) {
-                      await window.parent.__BGM_SET("song1");
-                    }
-                    if (window.parent.__BGM_PLAY) {
-                      await window.parent.__BGM_PLAY();
-                    }
-                  }catch(e){}
+        if (window.parent.__BGM_SET) {
+          await window.parent.__BGM_SET("song1");
+        }
+        if (window.parent.__BGM_PLAY) {
+          await window.parent.__BGM_PLAY();
+        }
+      }catch(e){}
 
-                  // Let the animation be seen before navigation
-                  window.setTimeout(goIntro, 520);
-                }, {capture:true});
+      window.setTimeout(goIntro, 520);
+    }, {capture:true});
 
-                // Make Enter/Space also open (accessibility)
-                env.setAttribute("tabindex", "0");
-                env.addEventListener("keydown", (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    env.click();
-                  }
-                });
-              }catch(e){}
-            })();
-            </script>
+    env.setAttribute("tabindex", "0");
+    env.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        env.click();
+      }
+    });
+  }catch(e){}
+})();
+</script>
             """,
             height=0,
         )
@@ -597,58 +567,54 @@ with st.container():
         st.markdown("## 💌 Hey baby pie…")
         st.markdown(
             f"""
-            <p class="big">
-              I made this little page because I wanted to ask you something in a way that’s
-              <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>
-              <br><br>
-              First, make sure your music sounds are on! 🔊🎶
-              <br><br>
-              Also, I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
-              <br><br>
-              So… here goes nothing!
-            </p>
+<p class="big">
+  I made this little page because I wanted to ask you something in a way that’s
+  <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>
+  <br><br>
+  First, make sure your music sounds are on! 🔊🎶
+  <br><br>
+  Also, I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
+  <br><br>
+  So… here goes nothing!
+</p>
             """,
             unsafe_allow_html=True,
         )
 
-        # Streamlit button (changes stage)
         if st.button("Open the question 💖"):
             st.session_state.stage = "question"
             st.rerun()
 
-        # IMPORTANT: Bind to the same click gesture and switch to song2
+        # Bind to the same click gesture and switch to song2
         components.html(
             """
-            <script>
-            (function(){
-              try {
-                const doc = window.parent.document;
+<script>
+(function(){
+  try {
+    const doc = window.parent.document;
+    const buttons = Array.from(doc.querySelectorAll('button'));
+    const target = buttons.find(b => (b.innerText || "").trim() === "Open the question 💖");
+    if (!target) return;
 
-                // Find the Streamlit button by its visible text
-                const buttons = Array.from(doc.querySelectorAll('button'));
-                const target = buttons.find(b => (b.innerText || "").trim() === "Open the question 💖");
-                if (!target) return;
+    if (target.dataset.bgmBound === "1") return;
+    target.dataset.bgmBound = "1";
 
-                // Avoid binding multiple times on reruns
-                if (target.dataset.bgmBound === "1") return;
-                target.dataset.bgmBound = "1";
-
-                target.addEventListener("click", async () => {
-                  try {
-                    if (window.parent.__BGM_SET) {
-                      await window.parent.__BGM_SET("song2");
-                    } else if (window.parent.__BGM_PLAY) {
-                      await window.parent.__BGM_PLAY();
-                    }
-                  } catch (e) {
-                    console.log("BGM switch blocked:", e);
-                  }
-                }, { capture: true });
-              } catch (e) {
-                console.log("Bind failed:", e);
-              }
-            })();
-            </script>
+    target.addEventListener("click", async () => {
+      try {
+        if (window.parent.__BGM_SET) {
+          await window.parent.__BGM_SET("song2");
+        } else if (window.parent.__BGM_PLAY) {
+          await window.parent.__BGM_PLAY();
+        }
+      } catch (e) {
+        console.log("BGM switch blocked:", e);
+      }
+    }, { capture: true });
+  } catch (e) {
+    console.log("Bind failed:", e);
+  }
+})();
+</script>
             """,
             height=0,
         )
@@ -659,12 +625,12 @@ with st.container():
     elif st.session_state.stage == "question":
         st.markdown(
             f"""
-            <h1 style="margin-top: 0.2rem;">{who}, will you be my Valentine? 💝</h1>
-            <p class="big">
-              No pressure… but also… <b>I’m really hoping you say yes.</b> 🥺
-              <br>
-              (I even brought some snacks: 🍙 for you, 🍣 for me, while you think.)
-            </p>
+<h1 style="margin-top: 0.2rem;">{who}, will you be my Valentine? 💝</h1>
+<p class="big">
+  No pressure… but also… <b>I’m really hoping you say yes.</b> 🥺
+  <br>
+  (I even brought some snacks: 🍙 for you, 🍣 for me, while you think.)
+</p>
             """,
             unsafe_allow_html=True,
         )
@@ -679,47 +645,46 @@ with st.container():
                 st.rerun()
 
         with col2:
-            # Runaway "I'm thinking" button (navigate parent URL so Streamlit sees it)
             components.html(
                 """
-                <div style="position: relative; height: 68px; display:flex; align-items:center; justify-content:center;">
-                  <button id="runaway"
-                    style="
-                      position:absolute;
-                      padding: 12px 14px;
-                      border-radius: 14px;
-                      border: 0;
-                      font-weight: 900;
-                      cursor: pointer;
-                      box-shadow: 0 12px 26px rgba(0,0,0,0.14);
-                      background: rgba(255,255,255,0.90);
-                      color: #2b2b2b;
-                    ">
-                    I’m thinking… 🤭
-                  </button>
-                </div>
+<div style="position: relative; height: 68px; display:flex; align-items:center; justify-content:center;">
+  <button id="runaway"
+    style="
+      position:absolute;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 0;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 12px 26px rgba(0,0,0,0.14);
+      background: rgba(255,255,255,0.90);
+      color: #2b2b2b;
+    ">
+    I’m thinking… 🤭
+  </button>
+</div>
 
-                <script>
-                  const btn = document.getElementById("runaway");
+<script>
+  const btn = document.getElementById("runaway");
 
-                  function moveButton() {
-                    const x = (Math.random() * 210) - 105;
-                    const y = (Math.random() * 40) - 20;
-                    const r = (Math.random() * 14) - 7;
-                    btn.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
-                  }
+  function moveButton() {
+    const x = (Math.random() * 210) - 105;
+    const y = (Math.random() * 40) - 20;
+    const r = (Math.random() * 14) - 7;
+    btn.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+  }
 
-                  btn.addEventListener("mouseenter", moveButton);
-                  btn.addEventListener("touchstart", () => moveButton(), {passive:true});
+  btn.addEventListener("mouseenter", moveButton);
+  btn.addEventListener("touchstart", () => moveButton(), {passive:true});
 
-                  btn.addEventListener("click", () => {
-                    const url = new URL(window.parent.location.href);
-                    url.searchParams.set("choice", "maybe");
-                    window.parent.location.href = url.toString();
-                  });
+  btn.addEventListener("click", () => {
+    const url = new URL(window.parent.location.href);
+    url.searchParams.set("choice", "maybe");
+    window.parent.location.href = url.toString();
+  });
 
-                  setTimeout(moveButton, 420);
-                </script>
+  setTimeout(moveButton, 420);
+</script>
                 """,
                 height=82,
             )
@@ -733,21 +698,21 @@ with st.container():
         if st.session_state.answered == "yes":
             st.markdown(
                 f"""
-                <h1 class="pulse">YAYYYYY 💘💘💘</h1>
-                <p class="big">
-                  Okay it’s official. {who}, you just made my whole day.
-                  <br><br>
-                  <b>Long-distance Valentine plan:</b> video call + dinner together + a silly screenshot 📸
-                  <br>
-                  Then we do a “food exchange”: my food for you, your food for me, and 💖 for both.
-                </p>
+<h1 class="pulse">YAYYYYY 💘💘💘</h1>
+<p class="big">
+  Okay it’s official. {who}, you just made my whole day.
+  <br><br>
+  <b>Long-distance Valentine plan:</b> video call + dinner together + a silly screenshot 📸
+  <br>
+  Then we do a “food exchange”: my food for you, your food for me, and 💖 for both.
+</p>
                 """,
                 unsafe_allow_html=True,
             )
             st.success("Achievement unlocked: Official Valentine 💘🍙🍣")
 
         if st.button("Ask again (reset) 🔁"):
-            st.session_state.stage = "letter"  # reset back to envelope
+            st.session_state.stage = "letter"
             st.session_state.answered = None
             st.rerun()
 
