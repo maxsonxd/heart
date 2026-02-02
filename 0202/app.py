@@ -1,0 +1,418 @@
+import streamlit as st
+import streamlit.components.v1 as components
+
+# ----- Background music -----
+def music_player(audio_path: str):
+    # Remember user preference
+    if "music_on" not in st.session_state:
+        st.session_state.music_on = False
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        if st.session_state.music_on:
+            if st.button("Pause 🔇"):
+                st.session_state.music_on = False
+                st.rerun()
+        else:
+            if st.button("Play music 🎵"):
+                st.session_state.music_on = True
+                st.rerun()
+
+    with col2:
+        st.caption("Tap play for background music 💗")
+
+    # Render the audio player only when enabled
+    if st.session_state.music_on:
+        try:
+            audio_bytes = open(audio_path, "rb").read()
+            st.audio(audio_bytes, format="audio/mp3", start_time=0)
+        except FileNotFoundError:
+            st.error(f"Missing audio file: {audio_path}")
+
+# ----- Page setup -----
+st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layout="centered")
+
+# ----- Custom names -----
+HER_NAME = "Onigiri"
+ME_NICKNAME = "Maki Pie"
+
+# ----- CSS (Theme: pink > blue > yellow) -----
+CSS = """
+<style>
+:root{
+  --pink:#ffc0c0;   /* dominant */
+  --blue:#a8d8f0;   /* secondary */
+  --yellow:#fbf9a3; /* least */
+  --card:#ffffffcc;
+  --ink:#2b2b2b;
+  --shadow: rgba(0,0,0,0.12);
+}
+
+/* Background */
+.stApp{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 192, 192, 0.95), rgba(255, 192, 192, 0.0) 55%),
+    radial-gradient(circle at 85% 30%, rgba(168, 216, 240, 0.85), rgba(168, 216, 240, 0.0) 55%),
+    radial-gradient(circle at 25% 88%, rgba(251, 249, 163, 0.55), rgba(251, 249, 163, 0.0) 60%),
+    linear-gradient(160deg, var(--pink) 0%, var(--pink) 40%, var(--blue) 72%, var(--yellow) 100%);
+  min-height: 100vh;
+}
+
+/* Card */
+.card{
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 12px 34px var(--shadow);
+  border-radius: 22px;
+  padding: 26px 22px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 2;
+}
+
+/* Typography */
+h1,h2,h3,p{ color: var(--ink) !important; }
+.big{
+  font-size: 1.25rem;
+  line-height: 1.65;
+}
+
+/* Badge */
+.badge{
+  display:inline-block;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.76);
+  border: 1px solid rgba(255,255,255,0.55);
+  font-weight: 800;
+}
+
+/* Header strip */
+.title-strip{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 10px;
+  margin-top: 6px;
+  margin-bottom: 14px;
+  font-size: 1.08rem;
+  opacity: 0.95;
+}
+
+/* Pulse */
+.pulse{
+  display:inline-block;
+  animation: pulse 1.25s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* Footer */
+.footer{
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
+
+/* Floating particles (in parent page DOM) */
+.floaty{
+  position: fixed;
+  bottom: -60px;
+  opacity: 0.92;
+  pointer-events: none;
+  z-index: 1;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.12));
+  animation-name: floatUp;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  will-change: transform;
+}
+@keyframes floatUp{
+  from { transform: translate3d(0,0,0) rotate(0deg); }
+  to   { transform: translate3d(60px, -118vh, 0) rotate(22deg); }
+}
+
+/* Twinkles overlay */
+.twinkle{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events:none;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.38) 1px, transparent 1px),
+    radial-gradient(rgba(255,255,255,0.24) 1px, transparent 1px);
+  background-size: 46px 46px, 72px 72px;
+  background-position: 0 0, 18px 26px;
+  animation: twinkleMove 9s linear infinite;
+  opacity: 0.33;
+}
+@keyframes twinkleMove{
+  from { transform: translateY(0); }
+  to { transform: translateY(70px); }
+}
+
+/* Make Streamlit buttons feel more cute */
+.stButton > button{
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
+}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+# ----- State -----
+if "stage" not in st.session_state:
+    st.session_state.stage = "intro"
+if "answered" not in st.session_state:
+    st.session_state.answered = None
+
+# ----- Handle clicks from custom HTML buttons via query params -----
+choice = st.query_params.get("choice")
+if choice in ("yes", "maybe", "no"):
+    if choice == "yes":
+        st.session_state.answered = "yes"
+        st.session_state.stage = "result"
+        st.balloons()
+    elif choice == "maybe":
+        st.session_state.answered = "maybe"
+        st.session_state.stage = "result"
+    else:  # "no"
+        st.session_state.answered = "no"
+        st.session_state.stage = "result"
+
+    st.query_params.clear()
+    st.rerun()
+
+# ----- Inject floating hearts/balloons/onigiri/maki into PARENT DOM -----
+# Key idea: components.html runs in an iframe, so attach to window.parent.document
+EFFECTS_PARENT_HTML = """
+<div></div>
+<script>
+(function(){
+  try {
+    const doc = window.parent.document;
+
+    // Prevent duplicate inject on reruns
+    if (doc.getElementById("floaty-layer-installed")) return;
+
+    const marker = doc.createElement("div");
+    marker.id = "floaty-layer-installed";
+    marker.style.display = "none";
+    doc.body.appendChild(marker);
+
+    // Add twinkle overlay once
+    const tw = doc.createElement("div");
+    tw.className = "twinkle";
+    doc.body.appendChild(tw);
+
+    // Emoji sets
+    const FLOATIES = [
+      "💖","💘","💝","💗","💓","💕","❤️",
+      "🎈","🎈","🎈",
+      "🍙","🍙","🍙",
+      "🍣","🍣",
+      "✨","✨","✨"
+    ];
+
+    function spawnFloaty(emoji=null){
+      if (doc.querySelectorAll(".floaty").length > 18) return;
+      
+      const el = doc.createElement("div");
+      el.className = "floaty";
+      el.textContent = emoji || FLOATIES[Math.floor(Math.random()*FLOATIES.length)];
+
+      // Position
+      el.style.left = Math.floor(Math.random()*96) + "vw";
+
+      // Duration + size
+      const dur = 6 + Math.random()*4; // 6–10s
+      const size = 18 + Math.random()*28;     // 18–46px
+      el.style.animationDuration = dur + "s";
+      el.style.fontSize = size + "px";
+
+      // Random drift by varying animation endpoint using CSS variables (simple trick: random rotate start)
+      el.style.transform = `translate3d(0,0,0) rotate(${Math.floor(Math.random()*22)-11}deg)`;
+
+      doc.body.appendChild(el);
+      window.setTimeout(()=>el.remove(), (dur*1000)+900);
+    }
+
+    function burst(){
+      const burstSet = ["✨","💖","💕","🍙","🍣"];
+      for(let i=0;i<6;i++){
+        window.setTimeout(
+          ()=>spawnFloaty(burstSet[Math.floor(Math.random()*burstSet.length)]),
+          i*90
+        );
+      }
+    }
+
+    // Start with a sprinkle
+    for(let i=0;i<18;i++){
+      window.setTimeout(()=>spawnFloaty(), i*90);
+    }
+    window.setTimeout(burst, 900);
+
+    // Continuous spawning
+    const baseInterval = 900;       // more visible
+    const burstChance = 0.03;
+
+    window.setInterval(()=>{
+      spawnFloaty();
+      if (Math.random() < burstChance) burst();
+    }, baseInterval);
+
+  } catch(e) {
+    // If parent DOM is locked down (rare), do nothing gracefully
+    console.log("Floaty injection blocked:", e);
+  }
+})();
+</script>
+"""
+components.html(EFFECTS_PARENT_HTML, height=0)
+
+# ----- UI -----
+st.write("")  # spacing
+music_player("song.mp3")
+
+with st.container():
+
+    st.markdown(
+        '<div class="badge">✨ A tiny website I made just for you, my love, my heart, my honey pie pie ✨</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
+        <div class="title-strip">
+          <span>🍙</span>
+          <span>MNO 5ever</span>
+          <span>🍣</span>
+        </div>
+        <div class="title-strip">
+          <span class="pulse">💘</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    who = HER_NAME.strip() if HER_NAME.strip() else "baby pie"
+
+    if st.session_state.stage == "intro":
+        st.markdown("## 💌 Hey baby pie…")
+        st.markdown(
+            f"""
+            <p class="big">
+              I made this little page because I wanted to ask you something in a way that’s
+              <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>.
+              <br><br>
+              Also I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
+              <br><br>
+              So… here goes nothing!
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Open the question 💖"):
+            st.session_state.stage = "question"
+            st.rerun()
+
+    elif st.session_state.stage == "question":
+        st.markdown(
+            f"""
+            <h1 style="margin-top: 0.2rem;">{who}, will you be my Valentine? 💝</h1>
+            <p class="big">
+              No pressure… but also… <b>I’m really hoping you say yes.</b> 🥺
+              <br>
+              (I even brought some snacks: 🍙 for you, 🍣 for me, while you think.)
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("YES 💖", use_container_width=True):
+                st.session_state.answered = "yes"
+                st.balloons()
+                st.session_state.stage = "result"
+                st.rerun()
+
+        with col2:
+            # Runaway "I'm thinking" button
+            components.html(
+                """
+                <div style="position: relative; height: 68px; display:flex; align-items:center; justify-content:center;">
+                  <button id="runaway"
+                    style="
+                      position:absolute;
+                      padding: 12px 14px;
+                      border-radius: 14px;
+                      border: 0;
+                      font-weight: 900;
+                      cursor: pointer;
+                      box-shadow: 0 12px 26px rgba(0,0,0,0.14);
+                      background: rgba(255,255,255,0.90);
+                    ">
+                    I’m thinking… 🤭
+                  </button>
+                </div>
+
+                <script>
+                  const btn = document.getElementById("runaway");
+
+                  function moveButton() {
+                    const x = (Math.random() * 210) - 105;  // -105..105
+                    const y = (Math.random() * 40) - 20;    // -20..20
+                    const r = (Math.random() * 14) - 7;     // -7..7 deg
+                    btn.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+                  }
+
+                  btn.addEventListener("mouseenter", moveButton);
+                  btn.addEventListener("touchstart", () => moveButton(), {passive:true});
+
+                  btn.addEventListener("click", () => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("choice", "maybe");
+                    window.location.href = url.toString();
+                  });
+
+                  setTimeout(moveButton, 420);
+                </script>
+                """,
+                height=82,
+            )
+
+        st.caption("psst… the ‘thinking’ button is shy 😳")
+
+    else:  # result
+        if st.session_state.answered == "yes":
+            st.markdown(
+                f"""
+                <h1 class="pulse">YAYYYYY 💘💘💘</h1>
+                <p class="big">
+                  Okay it’s official. {who}, you just made my whole day.
+                  <br><br>
+                  <b>Long-distance Valentine plan:</b> video call + dinner “together” + a silly screenshot 📸
+                  <br>
+                  Then we do a “snack exchange”: 🍙 for you, 🍣 for me, and 💖 for both.
+                </p>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.success("Achievement unlocked: Official Valentine 💘🍙🍣")
+
+        if st.button("Ask again (reset) 🔁"):
+            st.session_state.stage = "intro"
+            st.session_state.answered = None
+            st.rerun()
+
+    st.markdown(
+        '<hr style="border: none; height: 1px; background: rgba(0,0,0,0.08);">',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
