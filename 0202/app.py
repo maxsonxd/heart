@@ -487,22 +487,15 @@ with st.container():
   if (!env) return;
 
   const goIntro = () => {
-    try {
-      const url = new URL(window.parent.location.href);
-      url.searchParams.set("stage", "intro");
-      window.parent.history.replaceState({}, "", url.toString());
-      window.parent.location.reload();
-    } catch (e) {
-      const url2 = new URL(window.parent.location.href);
-      url2.searchParams.set("stage", "intro");
-      window.parent.location.href = url2.toString();
-    }
+    const url = new URL(window.parent.location.href);
+    url.searchParams.set("stage", "intro");
+    window.parent.location.href = url.toString();
   };
+
 
   function openIt(){
     env.classList.add("opening");
 
-    // Fire audio without blocking transition
     try{
       if (window.parent.__BGM_SET) window.parent.__BGM_SET("song1");
       if (window.parent.__BGM_PLAY) window.parent.__BGM_PLAY();
@@ -510,6 +503,7 @@ with st.container():
 
     window.setTimeout(goIntro, 520);
   }
+
 
   env.addEventListener("click", openIt, {capture:true});
   env.addEventListener("keydown", (e) => {
