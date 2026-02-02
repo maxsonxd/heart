@@ -344,6 +344,8 @@ with st.container():
               I made this little page because I wanted to ask you something in a way that’s
               <b>very {ME_NICKNAME}</b>… and very <span class="pulse">💘</span>
               <br><br>
+              First, make sure your music sounds are on! 🔊🎶
+              <br><br>
               Also, I added 🍣 and 🍙 floating around because we’re literally Maki &amp; Onigiri.
               <br><br>
               So… here goes nothing!
