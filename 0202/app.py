@@ -1,33 +1,6 @@
+import base64
 import streamlit as st
 import streamlit.components.v1 as components
-
-# ----- Background music -----
-def music_player(audio_path: str):
-    # Remember user preference
-    if "music_on" not in st.session_state:
-        st.session_state.music_on = False
-
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        if st.session_state.music_on:
-            if st.button("Pause 🔇"):
-                st.session_state.music_on = False
-                st.rerun()
-        else:
-            if st.button("Play music 🎵"):
-                st.session_state.music_on = True
-                st.rerun()
-
-    with col2:
-        st.caption("Tap play for background music 💗")
-
-    # Render the audio player only when enabled
-    if st.session_state.music_on:
-        try:
-            audio_bytes = open(audio_path, "rb").read()
-            st.audio(audio_bytes, format="audio/mp3", start_time=0)
-        except FileNotFoundError:
-            st.error(f"Missing audio file: {audio_path}")
 
 # ----- Page setup -----
 st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layout="centered")
@@ -35,6 +8,17 @@ st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layou
 # ----- Custom names -----
 HER_NAME = "Onigiri"
 ME_NICKNAME = "Maki Pie"
+
+# ----- Load song.mp3 as base64 (fixes "missing on deploy") -----
+AUDIO_B64 = ""
+AUDIO_ERROR = ""
+try:
+    with open("song2.mp3", "rb") as f:
+        AUDIO_B64 = base64.b64encode(f.read()).decode("utf-8")
+except FileNotFoundError:
+    AUDIO_ERROR = "song.mp3 not found.."
+except Exception as e:
+    AUDIO_ERROR = f"Could not load song.mp3: {e}"
 
 # ----- CSS (Theme: pink > blue > yellow) -----
 CSS = """
@@ -94,7 +78,7 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   justify-content:center;
   gap: 10px;
   margin-top: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   font-size: 1.08rem;
   opacity: 0.95;
 }
@@ -158,6 +142,29 @@ h1,h2,h3,p{ color: var(--ink) !important; }
   font-weight: 800 !important;
   box-shadow: 0 10px 22px rgba(0,0,0,0.10) !important;
 }
+
+/* Mini music controls */
+.musicbar{
+  display:flex;
+  justify-content:center;
+  gap: 10px;
+  margin: 8px 0 2px 0;
+}
+.musicbtn{
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 0;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.90);
+  color: #2b2b2b;
+}
+.musichint{
+  text-align:center;
+  font-size: 0.92rem;
+  opacity: 0.78;
+}
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -168,124 +175,149 @@ if "stage" not in st.session_state:
 if "answered" not in st.session_state:
     st.session_state.answered = None
 
-# ----- Handle clicks from custom HTML buttons via query params -----
+# ----- Handle query params from JS buttons -----
 choice = st.query_params.get("choice")
 if choice in ("yes", "maybe", "no"):
+    st.session_state.answered = choice
+    st.session_state.stage = "result"
     if choice == "yes":
-        st.session_state.answered = "yes"
-        st.session_state.stage = "result"
         st.balloons()
-    elif choice == "maybe":
-        st.session_state.answered = "maybe"
-        st.session_state.stage = "result"
-    else:  # "no"
-        st.session_state.answered = "no"
-        st.session_state.stage = "result"
-
     st.query_params.clear()
     st.rerun()
 
-# ----- Inject floating hearts/balloons/onigiri/maki into PARENT DOM -----
-# Key idea: components.html runs in an iframe, so attach to window.parent.document
-EFFECTS_PARENT_HTML = """
+stage_q = st.query_params.get("stage")
+if stage_q in ("intro", "question", "result"):
+    st.session_state.stage = stage_q
+
+# ----- Inject floaties + persistent audio into PARENT DOM -----
+# NOTE: base64 audio means no missing-file URL issues on Streamlit Cloud.
+EFFECTS_AND_AUDIO = f"""
 <div></div>
 <script>
-(function(){
-  try {
+(function(){{
+  try {{
     const doc = window.parent.document;
 
-    // Prevent duplicate inject on reruns
-    if (doc.getElementById("floaty-layer-installed")) return;
+    // Prevent duplicate install on reruns
+    if (!doc.getElementById("floaty-layer-installed")) {{
+      const marker = doc.createElement("div");
+      marker.id = "floaty-layer-installed";
+      marker.style.display = "none";
+      doc.body.appendChild(marker);
 
-    const marker = doc.createElement("div");
-    marker.id = "floaty-layer-installed";
-    marker.style.display = "none";
-    doc.body.appendChild(marker);
+      // Twinkles
+      const tw = doc.createElement("div");
+      tw.className = "twinkle";
+      doc.body.appendChild(tw);
 
-    // Add twinkle overlay once
-    const tw = doc.createElement("div");
-    tw.className = "twinkle";
-    doc.body.appendChild(tw);
+      // Persistent audio element
+      const audio = doc.createElement("audio");
+      audio.id = "bgm_onigiri";
+      audio.loop = true;
+      audio.preload = "auto";
+      audio.volume = 0.55;
+      audio.style.display = "none";
+      audio.src = "data:audio/mpeg;base64,{AUDIO_B64}";
+      doc.body.appendChild(audio);
 
-    // Emoji sets
-    const FLOATIES = [
-      "💖","💘","💝","💗","💓","💕","❤️",
-      "🎈","🎈","🎈",
-      "🍙","🍙","🍙",
-      "🍣","🍣",
-      "✨","✨","✨"
-    ];
+      // Helpers
+      window.parent.__BGM_PLAY = async function(){{
+        const a = doc.getElementById("bgm_onigiri");
+        if (!a) return;
+        try {{ await a.play(); }} catch(e) {{ console.log("BGM blocked:", e); }}
+      }};
+      window.parent.__BGM_TOGGLE = async function(){{
+        const a = doc.getElementById("bgm_onigiri");
+        if (!a) return;
+        if (a.paused) {{
+          try {{ await a.play(); }} catch(e) {{ console.log("BGM blocked:", e); }}
+        }} else {{
+          a.pause();
+        }}
+      }};
 
-    function spawnFloaty(emoji=null){
-      if (doc.querySelectorAll(".floaty").length > 18) return;
-      
-      const el = doc.createElement("div");
-      el.className = "floaty";
-      el.textContent = emoji || FLOATIES[Math.floor(Math.random()*FLOATIES.length)];
+      // Floaties
+      const FLOATIES = ["💖","💘","💝","💗","💓","💕","❤️","🎈","🎈","🍙","🍙","🍣","✨","✨"];
 
-      // Position
-      el.style.left = Math.floor(Math.random()*96) + "vw";
+      function spawnFloaty(emoji=null){{
+        // hard cap for performance
+        if (doc.querySelectorAll(".floaty").length > 18) return;
 
-      // Duration + size
-      const dur = 6 + Math.random()*4; // 6–10s
-      const size = 18 + Math.random()*28;     // 18–46px
-      el.style.animationDuration = dur + "s";
-      el.style.fontSize = size + "px";
+        const el = doc.createElement("div");
+        el.className = "floaty";
+        el.textContent = emoji || FLOATIES[Math.floor(Math.random()*FLOATIES.length)];
+        el.style.left = Math.floor(Math.random()*96) + "vw";
 
-      // Random drift by varying animation endpoint using CSS variables (simple trick: random rotate start)
-      el.style.transform = `translate3d(0,0,0) rotate(${Math.floor(Math.random()*22)-11}deg)`;
+        const dur = 6 + Math.random()*4;      // 6–10s
+        const size = 18 + Math.random()*24;   // lighter
+        el.style.animationDuration = dur + "s";
+        el.style.fontSize = size + "px";
+        el.style.transform = `translate3d(0,0,0) rotate(${{Math.floor(Math.random()*22)-11}}deg)`;
 
-      doc.body.appendChild(el);
-      window.setTimeout(()=>el.remove(), (dur*1000)+900);
-    }
+        doc.body.appendChild(el);
+        window.setTimeout(()=>el.remove(), (dur*1000)+900);
+      }}
 
-    function burst(){
-      const burstSet = ["✨","💖","💕","🍙","🍣"];
-      for(let i=0;i<6;i++){
-        window.setTimeout(
-          ()=>spawnFloaty(burstSet[Math.floor(Math.random()*burstSet.length)]),
-          i*90
-        );
-      }
-    }
+      function burst(){{
+        const burstSet = ["✨","💖","💕","🍙","🍣"];
+        for(let i=0;i<6;i++) {{
+          window.setTimeout(()=>spawnFloaty(burstSet[Math.floor(Math.random()*burstSet.length)]), i*90);
+        }}
+      }}
 
-    // Start with a sprinkle
-    for(let i=0;i<18;i++){
-      window.setTimeout(()=>spawnFloaty(), i*90);
-    }
-    window.setTimeout(burst, 900);
+      // Initial sprinkle
+      for(let i=0;i<12;i++) {{
+        window.setTimeout(()=>spawnFloaty(), i*120);
+      }}
+      window.setTimeout(burst, 900);
 
-    // Continuous spawning
-    const baseInterval = 900;       // more visible
-    const burstChance = 0.03;
+      // Continuous spawning
+      const baseInterval = 900;
+      const burstChance = 0.03;
 
-    window.setInterval(()=>{
-      spawnFloaty();
-      if (Math.random() < burstChance) burst();
-    }, baseInterval);
-
-  } catch(e) {
-    // If parent DOM is locked down (rare), do nothing gracefully
-    console.log("Floaty injection blocked:", e);
-  }
-})();
+      window.setInterval(()=>{{
+        spawnFloaty();
+        if (Math.random() < burstChance) burst();
+      }}, baseInterval);
+    }}
+  }} catch(e) {{
+    console.log("Effects/audio blocked:", e);
+  }}
+}})();
 </script>
 """
-components.html(EFFECTS_PARENT_HTML, height=0)
+components.html(EFFECTS_AND_AUDIO, height=0)
 
 # ----- UI -----
-st.write("")  # spacing
-music_player("song.mp3")
+st.write("")
+
+if AUDIO_ERROR:
+    st.error(AUDIO_ERROR)
+
+# # Music toggle (backup gesture if a phone blocks the first play)
+# components.html(
+#     """
+#     <div class="musicbar">
+#       <button class="musicbtn" id="musicToggle">🎵 Mute/Unmute</button>
+#     </div>
+#     <script>
+#       const btn = document.getElementById("musicToggle");
+#       btn.addEventListener("click", async () => {
+#         if (window.parent.__BGM_TOGGLE) await window.parent.__BGM_TOGGLE();
+#       });
+#     </script>
+#     """,
+#     height=80,
+# )
 
 with st.container():
-
     st.markdown(
         '<div class="badge">✨ A tiny website I made just for you, my love, my heart, my honey pie pie ✨</div>',
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        f"""
+        """
         <div class="title-strip">
           <span>🍙</span>
           <span>MNO 5ever</span>
@@ -315,9 +347,48 @@ with st.container():
             """,
             unsafe_allow_html=True,
         )
+
+        # IMPORTANT: Custom HTML button so audio.play() runs in the SAME click gesture.
+        # Also navigate the TOP-LEVEL window (window.parent.location), not the iframe.
         if st.button("Open the question 💖"):
-            st.session_state.stage = "question"
-            st.rerun()
+          st.session_state.stage = "question"
+          st.rerun()
+          
+        components.html(
+            """
+            <script>
+            (function(){
+              try {
+                const doc = window.parent.document;
+
+                // Find the Streamlit button by its visible text
+                const buttons = Array.from(doc.querySelectorAll('button'));
+                const target = buttons.find(b => (b.innerText || "").trim() === "Open the question 💖");
+
+                if (!target) return;
+
+                // Avoid binding multiple times on reruns
+                if (target.dataset.bgmBound === "1") return;
+                target.dataset.bgmBound = "1";
+
+                target.addEventListener("click", async () => {
+                  try {
+                    if (window.parent.__BGM_PLAY) {
+                      await window.parent.__BGM_PLAY();
+                    }
+                  } catch (e) {
+                    console.log("BGM play blocked:", e);
+                  }
+                }, { capture: true });
+              } catch (e) {
+                console.log("Bind failed:", e);
+              }
+            })();
+            </script>
+            """,
+            height=0,
+        )
+
 
     elif st.session_state.stage == "question":
         st.markdown(
@@ -342,7 +413,7 @@ with st.container():
                 st.rerun()
 
         with col2:
-            # Runaway "I'm thinking" button
+            # Runaway "I'm thinking" button (navigate parent URL so Streamlit sees it)
             components.html(
                 """
                 <div style="position: relative; height: 68px; display:flex; align-items:center; justify-content:center;">
@@ -356,6 +427,7 @@ with st.container():
                       cursor: pointer;
                       box-shadow: 0 12px 26px rgba(0,0,0,0.14);
                       background: rgba(255,255,255,0.90);
+                      color: #2b2b2b;
                     ">
                     I’m thinking… 🤭
                   </button>
@@ -365,9 +437,9 @@ with st.container():
                   const btn = document.getElementById("runaway");
 
                   function moveButton() {
-                    const x = (Math.random() * 210) - 105;  // -105..105
-                    const y = (Math.random() * 40) - 20;    // -20..20
-                    const r = (Math.random() * 14) - 7;     // -7..7 deg
+                    const x = (Math.random() * 210) - 105;
+                    const y = (Math.random() * 40) - 20;
+                    const r = (Math.random() * 14) - 7;
                     btn.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
                   }
 
@@ -375,9 +447,9 @@ with st.container():
                   btn.addEventListener("touchstart", () => moveButton(), {passive:true});
 
                   btn.addEventListener("click", () => {
-                    const url = new URL(window.location.href);
+                    const url = new URL(window.parent.location.href);
                     url.searchParams.set("choice", "maybe");
-                    window.location.href = url.toString();
+                    window.parent.location.href = url.toString();
                   });
 
                   setTimeout(moveButton, 420);
@@ -396,9 +468,9 @@ with st.container():
                 <p class="big">
                   Okay it’s official. {who}, you just made my whole day.
                   <br><br>
-                  <b>Long-distance Valentine plan:</b> video call + dinner “together” + a silly screenshot 📸
+                  <b>Long-distance Valentine plan:</b> video call + dinner together + a silly screenshot 📸
                   <br>
-                  Then we do a “snack exchange”: 🍙 for you, 🍣 for me, and 💖 for both.
+                  Then we do a “food exchange”: my food for you, your food for me, and 💖 for both.
                 </p>
                 """,
                 unsafe_allow_html=True,
