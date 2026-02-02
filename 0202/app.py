@@ -477,7 +477,7 @@ with st.container():
 
       <div class="env-cta">
         <span class="pulse">✨</span>
-        <span>Tap to open</span>
+        <span>Tap to shake letter</span>
         <span class="pulse">✨</span>
       </div>
     </div>
