@@ -1,6 +1,7 @@
 import base64
 import streamlit as st
 import streamlit.components.v1 as components
+from pathlib import Path
 
 # ----- Page setup -----
 st.set_page_config(page_title="💘 A Question For You", page_icon="💘", layout="centered")
@@ -10,13 +11,16 @@ HER_NAME = "Onigiri"
 ME_NICKNAME = "Maki Pie"
 
 # ----- Load song.mp3 as base64 (fixes "missing on deploy") -----
+APP_DIR = Path(__file__).resolve().parent
+SONG_PATH = APP_DIR / "song.mp3"
+
 AUDIO_B64 = ""
 AUDIO_ERROR = ""
+
 try:
-    with open("song2.mp3", "rb") as f:
-        AUDIO_B64 = base64.b64encode(f.read()).decode("utf-8")
+    AUDIO_B64 = base64.b64encode(SONG_PATH.read_bytes()).decode("utf-8")
 except FileNotFoundError:
-    AUDIO_ERROR = "song.mp3 not found.."
+    AUDIO_ERROR = f"song.mp3 not found at: {SONG_PATH}"
 except Exception as e:
     AUDIO_ERROR = f"Could not load song.mp3: {e}"
 
