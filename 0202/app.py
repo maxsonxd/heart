@@ -517,7 +517,7 @@ with st.container():
         open_now = st.button("✨ Tap to open ✨", use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Bind audio start to this Streamlit button click (like you did later)
+        # Bind audio start to this Streamlit button click
         components.html(
             """
 <script>
